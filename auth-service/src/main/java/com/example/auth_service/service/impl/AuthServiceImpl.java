@@ -1,9 +1,6 @@
 package com.example.auth_service.service.impl;
 
-import com.example.auth_service.dto.LoginRequestDto;
-import com.example.auth_service.dto.LoginResponseDto;
-import com.example.auth_service.dto.UserRegistrationRequestDto;
-import com.example.auth_service.dto.UserRegistrationResponseDto;
+import com.example.auth_service.dto.*;
 import com.example.auth_service.entity.User;
 import com.example.auth_service.exception.EmailAlreadyExistsException;
 import com.example.auth_service.exception.InvalidPasswordException;
@@ -11,6 +8,7 @@ import com.example.auth_service.exception.UserNotFoundException;
 import com.example.auth_service.exception.UsernameAlreadyExistsException;
 import com.example.auth_service.mapper.Mapper;
 import com.example.auth_service.repository.UserRepo;
+import com.example.auth_service.repository.UserServiceClient;
 import com.example.auth_service.security.JwtService;
 import com.example.auth_service.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +30,9 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     JwtService jwtService;
 
+    @Autowired
+    UserServiceClient userServiceClient;
+
     @Override
     public UserRegistrationResponseDto registerUser(UserRegistrationRequestDto requestDto) {
         if(userRepo.existsByEmail(requestDto.getEmail())){
@@ -49,6 +50,11 @@ public class AuthServiceImpl implements AuthService {
         user.setRole("USER");
         user.setPassword(passwordEncoder.encode(requestDto.getPassword()));
         User saveUser=userRepo.save(user);
+
+        //Storing user to user-service-db by using OpenFein
+        UserRequest userRequest=new UserRequest(user.getId(), user.getName(), user.getUsername(), user.getEmail());
+        userServiceClient.createUser(userRequest);
+
         return mapper.mapToUserRegistrationResponseDto(saveUser);
     }
 
