@@ -10,11 +10,7 @@ import lombok.*;
 public class UserRequestDto {
 
     private Integer authId;
-
     private String name;
-
     private String username;
-
     private String email;
-
 }
