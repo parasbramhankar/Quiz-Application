@@ -59,7 +59,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                     String userId = claims.get("id", String.class);
                     String username = claims.getSubject();
 
-                    // 6️⃣ Add headers for microservices
+                    // Add headers for microservices
                     ServerHttpRequest request = exchange.getRequest()
                             .mutate()
                             .header("X-User-Role", role)
@@ -67,7 +67,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                             .header("X-Username", username)
                             .build();
 
-                    // 7️⃣ Forward request
+                    // Forward request
                     return chain.filter(exchange.mutate().request(request).build());
 
                 } catch (Exception e) {
