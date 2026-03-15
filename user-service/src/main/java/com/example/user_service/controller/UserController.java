@@ -1,6 +1,7 @@
 package com.example.user_service.controller;
 
 import com.example.user_service.dto.UserRequestDto;
+import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.entity.User;
 import com.example.user_service.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +20,11 @@ public class UserController {
     UserService userService;
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody UserRequestDto user){
-
+    public ResponseEntity<UserResponseDto> createUser(@RequestBody UserRequestDto user){
         return ResponseEntity.ok(userService.createUser(user));
-
     }
+
+
 
 }
 
