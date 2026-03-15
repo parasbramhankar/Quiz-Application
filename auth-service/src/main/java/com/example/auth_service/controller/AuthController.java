@@ -30,12 +30,6 @@ public class AuthController {
         return ResponseEntity.ok(responseDto);
     }
 
-    @PostMapping("/validate")
-    public ResponseEntity<Boolean> validateToken(@RequestHeader("Authorization") String header){
-
-        String token = header.substring(7);
-        return ResponseEntity.ok(authService.validateToken(token));
-    }
 
     
 }
