@@ -1,18 +1,21 @@
 package com.example.user_service.controller;
 
+import com.example.user_service.dto.BioRequestDto;
 import com.example.user_service.dto.UserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
-import com.example.user_service.entity.User;
 import com.example.user_service.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -105,7 +108,7 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-// Get all users (Admin only)
+    // Get all users (Admin only)
     @Operation(
             summary = "Get all users",
             description = "Retrieve a list of all user profiles. Accessible only by administrators."
@@ -123,15 +126,126 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
-// =============update=================
+// =============Update=================
 
+    @Operation(
+            summary = "Update user details",
+            description = "Updates the authenticated user's profile details"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User details updated successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    @PatchMapping("/me")
+    public ResponseEntity<UserResponseDto> updateCurrentUser(
+            Authentication authentication,
+            @Valid @RequestBody UserRequestDto requestDto) {
 
-    public ResponseEntity<UserResponseDto>updateUser(Authentication authentication, @RequestBody UserRequestDto requestDto){
-        String username=authentication.getName();
+        String username = authentication.getName(); // from JWT
 
-        UserResponseDto userResponseDto=userService.updateUserDetails(username,requestDto);
+        UserResponseDto response =
+                userService.updateCurrentUser(username, requestDto);
 
-        return ResponseEntity.ok(userResponseDto);
+        return ResponseEntity.ok(response);
     }
+
+//Update bio
+@Operation(
+        summary = "Update user bio",
+        description = "Updates the bio of the currently authenticated user"
+)
+@ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Bio updated successfully"),
+        @ApiResponse(responseCode = "404", description = "User not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+})
+@PreAuthorize("isAuthenticated()")
+@PatchMapping("/me/bio")
+public ResponseEntity<UserResponseDto> updateBio(
+        Authentication authentication,
+        @RequestBody BioRequestDto request) {
+
+    String username = authentication.getName();
+
+    UserResponseDto response =
+            userService.updateBio(username, request.getBio());
+
+    return ResponseEntity.ok(response);
+}
+
+// update profile pic
+@Operation(
+        summary = "Update profile picture",
+        description = "Uploads and updates the profile picture of the authenticated user"
+)
+@ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Profile picture updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid file"),
+        @ApiResponse(responseCode = "404", description = "User not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+})
+@SecurityRequirement(name = "bearerAuth")
+@PreAuthorize("isAuthenticated()")
+@PatchMapping(value = "/me/profile-pic", consumes = "multipart/form-data")
+public ResponseEntity<UserResponseDto> updateProfilePicture(
+        Authentication authentication,
+        @Parameter(description = "Profile image file (JPG or PNG)", required = true)
+        @RequestPart("file") MultipartFile file) {
+
+    String username = authentication.getName();
+
+    return ResponseEntity.ok(
+            userService.updateProfilePicture(username, file)
+    );
+}
+
+
+//Delete current user
+
+    @Operation(
+            summary = "Delete current user account",
+            description = "Deletes the account of the currently authenticated user"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "User deleted successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @PreAuthorize("hasAnyRole('USER')")
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteCurrentUser(Authentication authentication) {
+
+        String username = authentication.getName();
+
+        userService.deleteCurrentUser(username);
+
+        return ResponseEntity.noContent().build();
+    }
+
+//admin delete the user
+    @Operation(
+            summary = "Delete user by ID",
+            description = "Deletes a user account using the user ID (Admin only)"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "User deleted successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Access denied")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUserById(@PathVariable Integer id) {
+
+        userService.deleteUserById(id);
+
+        return ResponseEntity.noContent().build();
+    }
+
+
+
+
+
 
 }
