@@ -15,6 +15,7 @@ public class Mapper {
         userResponseDto.setBio(user.getBio());
         userResponseDto.setProfilePic(user.getProfilePic());
         userResponseDto.setPoints(user.getPoints());
+        userResponseDto.setAuthId(user.getAuthId());
 
         return  userResponseDto;
     }
