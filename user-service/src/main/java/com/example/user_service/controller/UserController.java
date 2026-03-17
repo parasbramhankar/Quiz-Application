@@ -242,5 +242,5 @@ public ResponseEntity<UserResponseDto> updateProfilePicture(
 
         return ResponseEntity.noContent().build();
     }
-    
+
 }

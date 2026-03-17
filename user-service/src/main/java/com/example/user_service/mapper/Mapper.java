@@ -5,7 +5,7 @@ import com.example.user_service.entity.User;
 
 public class Mapper {
 
-    public UserResponseDto mapToResponseDtoResponseDto(User user){
+    public UserResponseDto mapToResponseDto(User user){
         UserResponseDto userResponseDto=new UserResponseDto();
 
         userResponseDto.setId(user.getId());
