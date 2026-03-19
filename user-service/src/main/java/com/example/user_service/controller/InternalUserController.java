@@ -22,6 +22,7 @@ public class InternalUserController {
     public ResponseEntity<UserResponseDto> createUser(@RequestBody UserRequestDto user){
         return ResponseEntity.ok(userService.createUser(user));
     }
+
 }
 
 

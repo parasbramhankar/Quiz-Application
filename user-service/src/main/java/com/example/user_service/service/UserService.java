@@ -2,12 +2,14 @@ package com.example.user_service.service;
 
 import com.example.user_service.dto.UserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
+import com.example.user_service.dto.UserUpdateRequestDto;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.DuplicateResourceException;
 import com.example.user_service.exception.EmailNotFoundException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UsernameNotFoundException;
 import com.example.user_service.mapper.Mapper;
+import com.example.user_service.repo.AuthServiceClient;
 import com.example.user_service.repo.UserRepository;
 import com.example.user_service.storage.FileStorageService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final Mapper mapper;
     private final FileStorageService fileStorageService;
+    private final AuthServiceClient authServiceClient;
 
     public UserResponseDto createUser(UserRequestDto userRequest) {
         User user = new User();
@@ -71,7 +74,6 @@ public class UserService {
 
 //Update user-details
 
-
     public UserResponseDto updateCurrentUser(String username, UserRequestDto requestDto) {
 
         User user = userRepository.findByUsername(username)
@@ -90,6 +92,11 @@ public class UserService {
             throw new DuplicateResourceException("Email already in use");
         }
 
+
+        //Calling the auth-service to update the details
+        authServiceClient.updateUser(user.getAuthId(),new UserUpdateRequestDto(requestDto.getName(),requestDto.getUsername(),requestDto.getEmail()));
+
+
         // Update only allowed fields
         if (requestDto.getName() != null) {
             user.setName(requestDto.getName());
@@ -102,19 +109,30 @@ public class UserService {
         }
 
         User updatedUser = userRepository.save(user);
+
         return mapper.mapToResponseDto(updatedUser);
     }
 
     //delete current user
     public void deleteCurrentUser(String username) {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        //Calling auth-service to delete the user from auth_db
+        authServiceClient.deleteUser(user.getAuthId());
+
         fileStorageService.deleteFile(user.getProfilePic());
         userRepository.delete(user);
+
     }
 
     public void deleteUserById(Integer id) {
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("user not found"));
+
+        //Calling auth-service to delete the user from auth_db
+        authServiceClient.deleteUser(user.getAuthId());
+
         fileStorageService.deleteFile(user.getProfilePic());
+
         userRepository.delete(user);
     }
 
@@ -153,6 +171,7 @@ public class UserService {
 
         return mapper.mapToResponseDto(savedUser);
     }
+
 
 
 }
