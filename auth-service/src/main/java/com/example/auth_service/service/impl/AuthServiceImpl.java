@@ -81,4 +81,38 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    public void updateUserFromUserService(Integer id, UserUpdateRequestDto requestDto){
+        User user=userRepo.findById(id).orElseThrow(()->new UserNotFoundException("User not found"));
+
+        if (requestDto.getEmail() != null &&
+                !requestDto.getEmail().equals(user.getEmail()) &&
+                userRepo.existsByEmail(requestDto.getEmail())) {
+            throw new EmailAlreadyExistsException("Email already exists");
+        }
+
+        if (requestDto.getUsername() != null &&
+                !requestDto.getUsername().equals(user.getUsername()) &&
+                userRepo.existsByUsername(requestDto.getUsername())) {
+            throw new UsernameAlreadyExistsException("Username already exists");
+        }
+
+        if(requestDto.getEmail()!=null){
+            user.setEmail(requestDto.getEmail());
+        }
+        if(requestDto.getUsername()!=null){
+            user.setUsername(requestDto.getUsername());
+        }
+
+        if(requestDto.getName()!=null){
+            user.setName(requestDto.getName());
+        }
+
+        userRepo.save(user);
+    }
+
+    public void deleteUserFromUserService(Integer id){
+        User user=userRepo.findById(id).orElseThrow(()->new UserNotFoundException("User not found"));
+        userRepo.delete(user);
+    }
+
 }
