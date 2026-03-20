@@ -1,10 +1,8 @@
 package com.example.quiz_service.entity;
 
+import com.example.quiz_service.entity.enums.Difficulty;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -20,15 +18,18 @@ public class QuizAttempt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    private Integer userId;// Many attempts → One quiz
+    private Integer userId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "quiz_id")
-    private Quiz quiz;
+    private String topic;
+
+    @Enumerated(EnumType.STRING)
+    private Difficulty difficulty;
+
+    private Integer numberOfQuestions;
 
     private LocalDateTime startTime;
+
     private LocalDateTime endTime;
 
     private Integer score;
-
 }
