@@ -14,16 +14,10 @@ import java.util.List;
 public class UpdateQuestionRequest {
 
     private Integer id;
-
     private String questionText;
-
     private String topic;
-
     private Difficulty difficulty;
-
     private String explanation;
-
     private Status status;
-
     private List<OptionRequest> options;
 }

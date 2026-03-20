@@ -5,8 +5,8 @@ import lombok.*;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SubmitAnswerRequest {
+public class OptionResponse {
 
-    private Integer questionId;
-    private Integer optionId;
+    private String text;
+    private boolean isCorrect;
 }
