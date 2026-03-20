@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OptionRequest {
+
     private String text;
     private boolean isCorrect;
 }

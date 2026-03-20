@@ -13,19 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 public class CreateQuizRequest {
 
-    private String title;
-
     private String topic;
-
-    private String description;
-
-    private Integer timeLimit;
-
     private Difficulty difficulty;
-
-    private Status status;
-
-    //Adding questions id, not question,
-    //There may be n number of question
-    private List<Integer> questionIds;
+    private Integer numberOfQuestions;
 }
