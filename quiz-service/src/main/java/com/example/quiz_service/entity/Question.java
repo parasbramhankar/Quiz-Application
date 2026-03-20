@@ -20,6 +20,7 @@ public class Question {
     private Integer id;
 
     private String questionText;
+
     private String topic;
 
     @Enumerated(EnumType.STRING)
@@ -30,6 +31,6 @@ public class Question {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL,orphanRemoval = true)
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Option> options;
 }
