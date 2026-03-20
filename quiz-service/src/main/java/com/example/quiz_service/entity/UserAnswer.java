@@ -15,15 +15,15 @@ public class UserAnswer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    private String selectedAnswer;
-
-    // Many answers → One attempt
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attempt_id")
     private QuizAttempt attempt;
 
-    // Many answers → One question
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_id")
     private Question question;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "option_id")
+    private Option selectedOption;
 }
