@@ -7,6 +7,7 @@ import lombok.*;
 @NoArgsConstructor
 public class OptionResponse {
 
+    private Integer id;
     private String text;
     private boolean isCorrect;
 }
