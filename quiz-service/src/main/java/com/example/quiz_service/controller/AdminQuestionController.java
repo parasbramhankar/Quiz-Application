@@ -87,11 +87,10 @@ public class AdminQuestionController {
     }
 
 
-
-//Delete Question
+    //Delete Question
     @Operation(
             summary = "Delete existing question",
-            description = "Delete a question in the database"
+            description = "Deletes a question from the database"
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Question deleted successfully"),
@@ -102,17 +101,17 @@ public class AdminQuestionController {
     })
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<String>deleteQuestion(
+    public ResponseEntity<String> deleteQuestion(
+
             @Parameter(
-                      description = "ID of the question to delete",
-                      required = true
+                    description = "ID of the question to delete",
+                    required = true
             )
             @PathVariable Integer id
-    ){
+    ) {
         questionService.deleteQuestion(id);
-        return ResponseEntity.ok("Question deleted Successfully");
+        return ResponseEntity.ok("Question deleted successfully");
     }
-
 
 
 }
