@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +27,22 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public QuestionResponse createQuestion(CreateQuestionRequest request) {
-        Question question=new Question();
+        Question question = new Question();
+
+        if (request.getOptions() != null && request.getOptions().size() != 4) {
+            throw new IllegalArgumentException("Question must have exactly 4 options");
+        }
+
+        int countCorrect = 0;
+        for (OptionRequest o : request.getOptions()) {
+            if (o.isCorrect()) {
+                countCorrect++;
+            }
+        }
+
+        if (countCorrect != 1) {
+            throw new IllegalArgumentException("Exactly one correct option required");
+        }
 
         question.setQuestionText(request.getQuestionText());
         question.setTopic(request.getTopic());
@@ -33,8 +50,8 @@ public class QuestionServiceImpl implements QuestionService {
         question.setExplanation(request.getExplanation());
         question.setStatus(request.getStatus());
 
-        List<Option>optionList=new ArrayList<>();
-        for(OptionRequest o: request.getOptions()) {
+        List<Option> optionList = new ArrayList<>();
+        for (OptionRequest o : request.getOptions()) {
             Option option = new Option();
             option.setText(o.getText());
             option.setCorrect(o.isCorrect());
@@ -43,33 +60,77 @@ public class QuestionServiceImpl implements QuestionService {
             optionList.add(option);
         }
         question.setOptions(optionList);
-        Question saveQuestion=questionRepository.save(question);
+        Question saveQuestion = questionRepository.save(question);
 
         return mapper.mapToQuestionResponse(saveQuestion);
     }
 
     @Override
     public QuestionResponse updateQuestion(Integer questionId, UpdateQuestionRequest request) {
-        Question question=questionRepository.findById(questionId).orElseThrow(()->
-                new QuestionNotFoundException("Question not found"));
+        Question question = questionRepository.findById(questionId).orElseThrow(() -> new QuestionNotFoundException("Question not found"));
 
+        if (request.getOptions() != null || request.getOptions().size() != 4) {
+            throw new IllegalArgumentException("Question must have exactly 4 options");
+        }
+
+        int countCorrect = 0;
+
+        for (OptionRequest o : request.getOptions()) {
+            if (o.isCorrect()) {
+                countCorrect++;
+            }
+        }
+
+        if (countCorrect != 1) {
+            throw new IllegalArgumentException("Exactly one correct option required");
+        }
+
+        //update basic field
         question.setQuestionText(request.getQuestionText());
         question.setTopic(request.getTopic());
         question.setDifficulty(request.getDifficulty());
         question.setExplanation(request.getExplanation());
         question.setStatus(request.getStatus());
 
-        List<Option>optionList=new ArrayList<>();
-        for(OptionRequest o: request.getOptions()) {
-            Option option = new Option();
-            option.setText(o.getText());
-            option.setCorrect(o.isCorrect());
-
-            option.setQuestion(question);
-            optionList.add(option);
+        //Store existing options in the map
+        Map<Integer, Option> existingOptions = new HashMap<>();
+        if (question.getOptions() != null) {
+            for (Option opt : question.getOptions()) {
+                existingOptions.put(opt.getId(), opt);
+            }
         }
-        question.setOptions(optionList);
-        Question saveQuestion=questionRepository.save(question);
+
+        List<Option> updatedOptions = new ArrayList<>();
+        for (OptionRequest opt : request.getOptions()) {
+
+            // case 1:
+            if (opt.getId() != null) {
+
+                if (!existingOptions.containsKey(opt.getId())) {
+                    throw new IllegalArgumentException("Invalid option id: " + opt.getId());
+                }
+
+                Option existing = existingOptions.get(opt.getId());
+                existing.setText(opt.getText());
+                existing.setCorrect(opt.isCorrect());
+
+                updatedOptions.add(existing);
+
+            }
+            // case 2:
+            else {
+                Option newOption = new Option();
+                newOption.setText(opt.getText());
+                newOption.setCorrect(opt.isCorrect());
+                newOption.setQuestion(question);
+
+                updatedOptions.add(newOption);
+            }
+        }
+        question.setOptions(updatedOptions);
+
+        Question saveQuestion = questionRepository.save(question);
+
 
         return mapper.mapToQuestionResponse(saveQuestion);
     }
@@ -77,6 +138,11 @@ public class QuestionServiceImpl implements QuestionService {
     @Override
     public void deleteQuestion(Integer questionId) {
 
+        if (!questionRepository.existsById(questionId)) {
+            throw new QuestionNotFoundException("Question not found");
+        }
+
+        questionRepository.deleteById(questionId);
     }
 
 }
