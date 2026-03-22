@@ -30,7 +30,7 @@ public class QuizServiceImpl implements QuizService {
     private final QuizAttemptRepository quizAttemptRepository;
     private final UserAnswerRepository userAnswerRepository;
 
-    //  Generate Quiz
+    //  1. Generate Quiz
     @Override
     public List<QuizQuestionResponse> generateQuiz(
             String topic,
@@ -65,9 +65,11 @@ public class QuizServiceImpl implements QuizService {
                 .toList();
     }
 
+
+
+
     //  2. Evaluate Quiz + Save Attempt
     @Override
-
     public QuizResultResponse evaluateQuiz(
             List<Integer> questionIds,
             List<SubmitAnswerRequest> answers
@@ -92,17 +94,23 @@ public class QuizServiceImpl implements QuizService {
         Map<Integer, Question> questionMap = questions.stream()
                 .collect(Collectors.toMap(Question::getId, q -> q));
 
-        //  STEP 3: Build correct answer map
+        //  STEP 3: Build correct answer map (FIX APPLIED HERE)
         Map<Integer, Integer> correctAnswerMap = new HashMap<>();
 
         for (Question q : questions) {
-            Integer correctOptionId = q.getOptions().stream()
-                    .filter(Option::isCorrect)
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("No correct option for question: " + q.getId()))
-                    .getId();
 
-            correctAnswerMap.put(q.getId(), correctOptionId);
+            List<Option> correctOptions = q.getOptions().stream()
+                    .filter(Option::isCorrect)
+                    .toList();
+
+            //  FINAL FIX
+            if (correctOptions.size() != 1) {
+                throw new RuntimeException(
+                        "Invalid Question (ID: " + q.getId() + ") → must have exactly ONE correct option"
+                );
+            }
+
+            correctAnswerMap.put(q.getId(), correctOptions.get(0).getId());
         }
 
         // STEP 4: Convert user answers to map
@@ -112,7 +120,7 @@ public class QuizServiceImpl implements QuizService {
                         SubmitAnswerRequest::getOptionId
                 ));
 
-        //  STEP 5: Evaluate
+        // STEP 5: Evaluate
         int score = 0;
         List<QuestionResult> results = new ArrayList<>();
 
@@ -149,10 +157,10 @@ public class QuizServiceImpl implements QuizService {
             ));
         }
 
-        //  STEP 6: Save QuizAttempt
+        // STEP 6: Save QuizAttempt
         QuizAttempt attempt = new QuizAttempt();
         attempt.setUserId(userId);
-        attempt.setTopic(questions.get(0).getTopic()); // basic
+        attempt.setTopic(questions.get(0).getTopic());
         attempt.setDifficulty(questions.get(0).getDifficulty());
         attempt.setNumberOfQuestions(questions.size());
         attempt.setStartTime(LocalDateTime.now());
@@ -161,7 +169,7 @@ public class QuizServiceImpl implements QuizService {
 
         quizAttemptRepository.save(attempt);
 
-        //  STEP 7: Save User Answers
+        // STEP 7: Save User Answers
         for (SubmitAnswerRequest ans : answers) {
 
             Question question = questionMap.get(ans.getQuestionId());
@@ -185,7 +193,7 @@ public class QuizServiceImpl implements QuizService {
         return new QuizResultResponse(
                 questions.size(),
                 score,
-                score, // can scale later
+                score,
                 results
         );
     }
