@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -23,7 +24,7 @@ public class QuizController {
 
     private final QuizService quizService;
 
-    // 🔥 1. Generate Quiz
+    // 1. Generate Quiz
     @Operation(
             summary = "Generate dynamic quiz",
             description = "Generates quiz based on topic, optional difficulty, and number of questions. " +
@@ -63,7 +64,7 @@ public class QuizController {
         return ResponseEntity.ok(quiz);
     }
 
-    // 🔥 2. Submit Quiz
+    // 2. Submit Quiz
     @Operation(
             summary = "Submit quiz and evaluate result",
             description = "Evaluates submitted answers. Unattempted questions are treated as incorrect. " +
@@ -80,7 +81,10 @@ public class QuizController {
                     description = "Quiz submission containing questionIds and answers",
                     required = true
             )
-            @RequestBody QuizSubmitRequest request
+            @Parameter(
+                    description = "QuizSubmitRequest object containing questionIds and selected answers"
+            )
+            @Valid @RequestBody QuizSubmitRequest request
     ) {
 
         QuizResultResponse result = quizService.evaluateQuiz(

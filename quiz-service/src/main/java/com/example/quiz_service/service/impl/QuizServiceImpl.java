@@ -3,159 +3,189 @@ package com.example.quiz_service.service.impl;
 import com.example.quiz_service.dto.*;
 import com.example.quiz_service.entity.Option;
 import com.example.quiz_service.entity.Question;
+import com.example.quiz_service.entity.QuizAttempt;
+import com.example.quiz_service.entity.UserAnswer;
 import com.example.quiz_service.entity.enums.Difficulty;
 import com.example.quiz_service.entity.enums.Status;
 import com.example.quiz_service.repository.QuestionRepository;
+import com.example.quiz_service.repository.QuizAttemptRepository;
+import com.example.quiz_service.repository.UserAnswerRepository;
 import com.example.quiz_service.service.QuizService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class QuizServiceImpl implements QuizService {
 
     private final QuestionRepository questionRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final UserAnswerRepository userAnswerRepository;
 
+    //  Generate Quiz
     @Override
-    public List<QuizQuestionResponse> generateQuiz(String topic, Difficulty difficulty, Integer limit) {
+    public List<QuizQuestionResponse> generateQuiz(
+            String topic,
+            Difficulty difficulty,
+            Integer limit
+    ) {
 
-        List<Question> questions = new ArrayList<>();
+        List<Question> questions;
 
         if (difficulty != null) {
-
-            // ✅ Single difficulty
-            List<Question> fetched = questionRepository
-                    .findByTopicAndDifficultyAndStatus(topic, difficulty, Status.ACTIVE);
-
-            if (fetched.size() < limit) {
-                throw new RuntimeException("Not enough questions available");
-            }
-
-            Collections.shuffle(fetched);
-            questions = fetched.stream().limit(limit).toList();
-
+            questions = questionRepository
+                    .findByTopicAndDifficultyAndStatus(
+                            topic, difficulty, Status.ACTIVE
+                    );
         } else {
-
-            // 🔥 MIXED DIFFICULTY
-            int easyCount = (int) (limit * 0.3);
-            int mediumCount = (int) (limit * 0.4);
-            int hardCount = limit - (easyCount + mediumCount);
-
-            List<Question> easy = questionRepository
-                    .findByTopicAndDifficultyAndStatus(topic, Difficulty.EASY, Status.ACTIVE);
-
-            List<Question> medium = questionRepository
-                    .findByTopicAndDifficultyAndStatus(topic, Difficulty.MEDIUM, Status.ACTIVE);
-
-            List<Question> hard = questionRepository
-                    .findByTopicAndDifficultyAndStatus(topic, Difficulty.HARD, Status.ACTIVE);
-
-            if (easy.size() < easyCount || medium.size() < mediumCount || hard.size() < hardCount) {
-                throw new RuntimeException("Not enough questions for mixed difficulty");
-            }
-
-            Collections.shuffle(easy);
-            Collections.shuffle(medium);
-            Collections.shuffle(hard);
-
-            questions.addAll(easy.stream().limit(easyCount).toList());
-            questions.addAll(medium.stream().limit(mediumCount).toList());
-            questions.addAll(hard.stream().limit(hardCount).toList());
-
-            // 🔥 FINAL SHUFFLE
-            Collections.shuffle(questions);
+            questions = questionRepository
+                    .findByTopicAndStatus(topic, Status.ACTIVE);
         }
 
-        // 🔄 MAP + OPTION SHUFFLE
         return questions.stream()
-                .map(q -> {
-
-                    List<Option> options = new ArrayList<>(q.getOptions());
-                    Collections.shuffle(options);
-
-                    return new QuizQuestionResponse(
-                            q.getId(),
-                            q.getQuestionText(),
-                            options.stream()
-                                    .map(opt -> new OptionOnlyResponse(
-                                            opt.getId(),
-                                            opt.getText()
-                                    ))
-                                    .toList()
-                    );
-                })
+                .limit(limit)
+                .map(q -> new QuizQuestionResponse(
+                        q.getId(),
+                        q.getQuestionText(),
+                        q.getOptions().stream()
+                                .map(o -> new OptionOnlyResponse(
+                                        o.getId(),
+                                        o.getText()
+                                ))
+                                .toList()
+                ))
                 .toList();
     }
 
+    //  2. Evaluate Quiz + Save Attempt
     @Override
+
     public QuizResultResponse evaluateQuiz(
             List<Integer> questionIds,
             List<SubmitAnswerRequest> answers
     ) {
 
-        if (questionIds == null || questionIds.isEmpty()) {
-            throw new RuntimeException("Question list cannot be empty");
+        // STEP 1: Get userId from SecurityContext
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || auth.getPrincipal() == null) {
+            throw new RuntimeException("User not authenticated");
         }
 
-        // Map answers
-        Map<Integer, Integer> answerMap = answers.stream()
+        Integer userId = Integer.parseInt((String) auth.getPrincipal());
+
+        // STEP 2: Fetch questions
+        List<Question> questions = questionRepository.findAllById(questionIds);
+
+        if (questions.isEmpty()) {
+            throw new RuntimeException("No questions found");
+        }
+
+        Map<Integer, Question> questionMap = questions.stream()
+                .collect(Collectors.toMap(Question::getId, q -> q));
+
+        //  STEP 3: Build correct answer map
+        Map<Integer, Integer> correctAnswerMap = new HashMap<>();
+
+        for (Question q : questions) {
+            Integer correctOptionId = q.getOptions().stream()
+                    .filter(Option::isCorrect)
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("No correct option for question: " + q.getId()))
+                    .getId();
+
+            correctAnswerMap.put(q.getId(), correctOptionId);
+        }
+
+        // STEP 4: Convert user answers to map
+        Map<Integer, Integer> userAnswersMap = answers.stream()
                 .collect(Collectors.toMap(
                         SubmitAnswerRequest::getQuestionId,
                         SubmitAnswerRequest::getOptionId
                 ));
 
-        // 🔥 Fetch ALL questions
-        List<Question> questions = questionRepository.findAllById(questionIds);
-
-        int correctCount = 0;
-
+        //  STEP 5: Evaluate
+        int score = 0;
         List<QuestionResult> results = new ArrayList<>();
 
-        for (Question question : questions) {
+        for (Question q : questions) {
 
-            Integer selectedOptionId = answerMap.get(question.getId());
-            boolean isAttempted = selectedOptionId != null;
+            Integer correctOptionId = correctAnswerMap.get(q.getId());
+            Integer selectedOptionId = userAnswersMap.get(q.getId());
 
-            List<OptionResult> optionResults = new ArrayList<>();
+            boolean isCorrect = correctOptionId.equals(selectedOptionId);
 
-            for (Option option : question.getOptions()) {
+            if (isCorrect) score++;
 
-                boolean isSelected = option.getId().equals(selectedOptionId);
-                boolean isCorrect = option.isCorrect();
-                boolean isWrong = isSelected && !isCorrect;
+            List<OptionResult> optionResults = q.getOptions().stream()
+                    .map(opt -> {
+                        boolean selected = opt.getId().equals(selectedOptionId);
+                        boolean correct = opt.isCorrect();
+                        boolean wrong = selected && !correct;
 
-                // ✔ Correct count
-                if (isSelected && isCorrect) {
-                    correctCount++;
-                }
-
-                optionResults.add(new OptionResult(
-                        option.getId(),
-                        option.getText(),
-                        isCorrect,
-                        isSelected,
-                        isWrong
-                ));
-            }
+                        return new OptionResult(
+                                opt.getId(),
+                                opt.getText(),
+                                correct,
+                                selected,
+                                wrong
+                        );
+                    })
+                    .toList();
 
             results.add(new QuestionResult(
-                    question.getId(),
-                    question.getQuestionText(),
+                    q.getId(),
+                    q.getQuestionText(),
                     optionResults,
-                    question.getExplanation()
+                    q.getExplanation()
             ));
         }
 
+        //  STEP 6: Save QuizAttempt
+        QuizAttempt attempt = new QuizAttempt();
+        attempt.setUserId(userId);
+        attempt.setTopic(questions.get(0).getTopic()); // basic
+        attempt.setDifficulty(questions.get(0).getDifficulty());
+        attempt.setNumberOfQuestions(questions.size());
+        attempt.setStartTime(LocalDateTime.now());
+        attempt.setEndTime(LocalDateTime.now());
+        attempt.setScore(score);
+
+        quizAttemptRepository.save(attempt);
+
+        //  STEP 7: Save User Answers
+        for (SubmitAnswerRequest ans : answers) {
+
+            Question question = questionMap.get(ans.getQuestionId());
+
+            if (question == null) continue;
+
+            Option selectedOption = question.getOptions().stream()
+                    .filter(o -> o.getId().equals(ans.getOptionId()))
+                    .findFirst()
+                    .orElse(null);
+
+            UserAnswer ua = new UserAnswer();
+            ua.setAttempt(attempt);
+            ua.setQuestion(question);
+            ua.setSelectedOption(selectedOption);
+
+            userAnswerRepository.save(ua);
+        }
+
+        // STEP 8: Return Response
         return new QuizResultResponse(
-                questionIds.size(),
-                correctCount,
-                correctCount,
+                questions.size(),
+                score,
+                score, // can scale later
                 results
         );
     }
