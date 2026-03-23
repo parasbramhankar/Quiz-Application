@@ -10,3 +10,4 @@ public class QuestionNotFoundException extends RuntimeException {
         super(message);
     }
 }
+
